@@ -58,7 +58,7 @@
   // ---------------- state ----------------
   var params = new URLSearchParams(location.search);
   var state = {
-    lang: params.get('lang') || localStorage.getItem('icml_lang') || 'ko',
+    lang: params.get('lang') || localStorage.getItem('icml_lang') || 'en',
     day: parseInt(params.get('day') || localStorage.getItem('icml_day') || '0', 10) || defaultDay(),
     chip: 'all',
     q: '',
