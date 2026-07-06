@@ -14,7 +14,7 @@
       social: '소셜·어피니티', ops: '운영·휴식',
       papers_n: '편의 발표', ends: '종료', room: '장소', time: '시간', speaker: '연사',
       organizers: '주최', abstract: '소개', speakers: '연사 소개', links: '링크',
-      talks: '발표 목록', posters: '포스터 목록', filter_papers: '이 세션에서 논문 검색…',
+      talks: '발표 목록', posters: '포스터 목록', accepted: '수록 논문', filter_papers: '이 세션에서 논문 검색…',
       shown: '표시', of: '/', results_events: '일정', results_papers: '논문',
       no_results: '검색 결과가 없습니다', no_events: '해당하는 일정이 없습니다',
       load_all: '전체 논문(6,035편)에서도 검색하기 — 최초 1회 로딩(약 9MB)',
@@ -30,7 +30,7 @@
       social: 'Social · Affinity', ops: 'Logistics',
       papers_n: ' papers', ends: 'ends', room: 'Room', time: 'Time', speaker: 'Speaker',
       organizers: 'Organizers', abstract: 'Abstract', speakers: 'Speakers', links: 'Links',
-      talks: 'Talks', posters: 'Posters', filter_papers: 'Filter papers in this session…',
+      talks: 'Talks', posters: 'Posters', accepted: 'Accepted Papers', filter_papers: 'Filter papers in this session…',
       shown: 'shown', of: ' of ', results_events: 'Events', results_papers: 'Papers',
       no_results: 'No results found', no_events: 'No matching events',
       load_all: 'Also search all 6,035 papers — one-time load (~9MB)',
@@ -426,14 +426,16 @@
 
     // papers
     if (e.nPapers) {
+      var plabel = e.type === 'oral-session' ? t('talks')
+        : e.type === 'poster-session' ? t('posters') : t('accepted');
       var psec = h('div', { class: 'msec' }, [
-        h('h4', null, [(e.type === 'oral-session' ? t('talks') : t('posters')) + ' · ' + e.nPapers]),
+        h('h4', null, [plabel + ' · ' + e.nPapers]),
         h('div', { class: 'spin' }, [t('loading')])
       ]);
       body.appendChild(psec);
       loadPapers(e.id).then(function (papers) {
         psec.innerHTML = '';
-        psec.appendChild(h('h4', null, [(e.type === 'oral-session' ? t('talks') : t('posters')) + ' · ' + papers.length]));
+        psec.appendChild(h('h4', null, [plabel + ' · ' + papers.length]));
         psec.appendChild(renderPaperList(papers));
       });
     }
@@ -507,13 +509,31 @@
       onclick: function () {
         expanded = !expanded;
         if (expanded && !bodyEl) {
+          var useKoAbs = state.lang === 'ko' && p.absKo;
+          var absHtml = useKoAbs ? p.absKo : p.abs;
           bodyEl = h('div', { class: 'pbody' }, [
             (state.lang === 'ko' && p.ko && p.en) ? h('div', { class: 'sub-en' }, [t('view_original_title') + ': ' + p.en]) : null,
-            p.abs ? h('div', { class: 'abs', html: p.abs }) : null,
+            absHtml ? h('div', { class: 'abs', html: absHtml }) : null,
             p.link ? h('div', { class: 'plinks linkrow' }, [
               h('a', { href: p.link, target: '_blank', rel: 'noopener' }, ['OpenReview ↗'])
             ]) : null
           ]);
+          if (useKoAbs && p.abs) {
+            var shownOrig = false;
+            var origEl = null;
+            bodyEl.insertBefore(h('button', {
+              class: 'lang-orig',
+              onclick: function (ev2) {
+                ev2.stopPropagation();
+                shownOrig = !shownOrig;
+                ev2.target.textContent = shownOrig ? t('hide_original') : t('show_original');
+                if (shownOrig && !origEl) {
+                  origEl = h('div', { class: 'abs', style: 'margin-top:8px', html: p.abs });
+                  ev2.target.insertAdjacentElement('afterend', origEl);
+                } else if (origEl) origEl.style.display = shownOrig ? '' : 'none';
+              }
+            }, [t('show_original')]), bodyEl.querySelector('.plinks'));
+          }
           item.appendChild(bodyEl);
         } else if (bodyEl) bodyEl.style.display = expanded ? '' : 'none';
       }

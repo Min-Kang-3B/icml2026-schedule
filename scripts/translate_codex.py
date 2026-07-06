@@ -14,7 +14,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 JOB = sys.argv[1]
-BATCH = {'titles': 80, 'abstracts': 6, 'bios': 6, 'misc': 45}[JOB]
+BATCH = {'titles': 80, 'abstracts': 6, 'bios': 6, 'misc': 45, 'pabs': 8, 'wtitles': 80, 'wabs': 8}[JOB]
 WORKERS = int(os.environ.get('TR_WORKERS', '8'))
 IN = f'tr_in_{JOB}.json'
 OUT = f'ko_{JOB}.json'
@@ -37,6 +37,12 @@ PROMPTS = {
         'Keep names, institutions, and award names in their common form (institution names may stay in English). '
         'Return ONLY a valid JSON object mapping each id to the Korean translation. No markdown fences, no commentary.'
     ),
+    'pabs': (
+        'You are a professional EN->KO translator for an ML conference (ICML) schedule app. '
+        'Each value below is an HTML fragment (a paper abstract). Translate the text into natural Korean for ML researchers, PRESERVING all HTML tags exactly. '
+        'Keep technical terms, method/model/benchmark names, and acronyms in English where Korean ML researchers normally would. Do not summarize; translate fully. '
+        'Return ONLY a valid JSON object mapping each id to the translated HTML string. No markdown fences, no commentary.'
+    ),
     'misc': (
         'You are a professional EN->KO translator for an ML conference (ICML) schedule app. '
         'Translate each short English string (event titles, session names, room names, labels) into natural, concise Korean. '
@@ -44,6 +50,9 @@ PROMPTS = {
         'Return ONLY a valid JSON object mapping each id to the Korean translation. No markdown fences, no commentary.'
     ),
 }
+
+PROMPTS['wtitles'] = PROMPTS['titles']
+PROMPTS['wabs'] = PROMPTS['pabs']
 
 src = json.load(open(IN))
 done = {}

@@ -24,6 +24,11 @@ ko_titles = load('ko_titles.json')
 ko_abstracts = load('ko_abstracts.json')
 ko_bios = load('ko_bios.json')
 ko_misc = load('ko_misc.json')
+ko_pabs = load('ko_pabs.json')
+ko_wtitles = load('ko_wtitles.json')
+ko_wabs = load('ko_wabs.json')
+or_venues = load('or_venues.json')
+w_matches = load('workshop_matches.json')
 
 abstracts = {}
 if os.path.exists('abstracts.jsonl'):
@@ -112,6 +117,35 @@ def paper_entry(pid, fallback_title=None, time=None):
     ab = abstracts.get(pid)
     if ab:
         ent['abs'] = ab
+    if ko_pabs.get(pid):
+        ent['absKo'] = ko_pabs[pid]
+    return ent
+
+import html as _html
+
+def or_abs_html(text):
+    """OpenReview abstracts are plain text; escape and wrap paragraphs."""
+    if not text:
+        return None
+    paras = [p.strip() for p in re.split(r'\n\s*\n|\n', text) if p.strip()]
+    return ''.join(f'<p>{_html.escape(p)}</p>' for p in paras)
+
+def workshop_paper_entry(p):
+    ent = {'id': p['id'], 'en': p.get('title')}
+    if ko_wtitles.get(p['id']):
+        ent['ko'] = ko_wtitles[p['id']]
+    authors = p.get('authors')
+    if isinstance(authors, list):
+        ent['authors'] = ', '.join(authors)
+    elif authors:
+        ent['authors'] = str(authors)
+    ab = or_abs_html(p.get('abstract'))
+    if ab:
+        ent['abs'] = ab
+    if ko_wabs.get(p['id']):
+        ent['absKo'] = ko_wabs[p['id']]
+    if p.get('forum'):
+        ent['link'] = p['forum']
     return ent
 
 # ---------- build ----------
@@ -190,6 +224,15 @@ for day in sched['days']:
                         plist.append({'en': c['title'], 'time': c.get('time')})
             paper_files[eid] = plist
             ev['nPapers'] = len(plist)
+
+        # workshop / affinity-event accepted papers from OpenReview
+        if eid in w_matches:
+            venue = or_venues.get(w_matches[eid], {})
+            wp = [workshop_paper_entry(p) for p in venue.get('papers', []) if p.get('title')]
+            if wp:
+                paper_files[eid] = wp
+                ev['nPapers'] = len(wp)
+                ev['papersSource'] = 'openreview'
 
         if drec:
             details[eid] = drec
