@@ -144,10 +144,12 @@ for day in sched['days']:
         }
         ko_t = ko_misc.get(f't:{eid}')
         if ko_t:
-            # keep session identifiers (e.g. "Oral 1A") visible in Korean titles
+            # keep session identifiers (e.g. "Oral 1A") visible in Korean titles,
+            # stripping any translated duplicate ("구두 발표 1A", "오럴 1A", ...)
             m = re.match(r'^(Oral \d[A-Z]?)\s', e['title'])
             if m and m.group(1) not in ko_t:
-                ko_t = f"{m.group(1)} · {ko_t}"
+                body = re.sub(r'^(?:Oral|오럴|구두\s*발표|구두)\s*\d[A-Z]?\s*[:·\-]?\s*', '', ko_t)
+                ko_t = f"{m.group(1)} · {body or ko_t}"
             ev['title']['ko'] = ko_t
         if e.get('speaker'):
             ev['speaker'] = e['speaker']

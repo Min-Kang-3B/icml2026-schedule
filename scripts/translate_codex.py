@@ -67,10 +67,12 @@ def run_batch(batch, tries=3):
         with tempfile.NamedTemporaryFile(mode='r', suffix='.txt', delete=False) as tf:
             outpath = tf.name
         try:
-            p = subprocess.run(
-                ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check',
-                 '-c', 'model_reasoning_effort="low"', '-o', outpath, '-'],
-                input=prompt, capture_output=True, text=True, timeout=900)
+            cmd = ['codex', 'exec', '-s', 'read-only', '--skip-git-repo-check',
+                   '-c', 'model_reasoning_effort="low"', '-o', outpath, '-']
+            model = os.environ.get('TR_MODEL')
+            if model:
+                cmd[2:2] = ['-m', model]
+            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=900)
             raw = open(outpath).read().strip()
             # strip fences if any
             raw = re.sub(r'^```(json)?|```$', '', raw.strip(), flags=re.M).strip()
