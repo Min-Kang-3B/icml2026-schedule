@@ -81,7 +81,8 @@ def run_batch(batch, tries=3):
             model = os.environ.get('TR_MODEL')
             if model:
                 cmd[2:2] = ['-m', model]
-            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=900)
+            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
+                               timeout=int(os.environ.get('TR_TIMEOUT', '2400')))
             raw = open(outpath).read().strip()
             # strip fences if any
             raw = re.sub(r'^```(json)?|```$', '', raw.strip(), flags=re.M).strip()
