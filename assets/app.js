@@ -20,6 +20,8 @@
       load_all: '전체 논문(6,035편)에서도 검색하기 — 최초 1회 로딩(약 9MB)',
       loading: '불러오는 중…', show_original: '영어 원문 보기', hide_original: '원문 닫기',
       orig_label: '원문(EN)', in_session: '세션', view_original_title: '원제',
+      wish: '위시', route: '동선', wish_empty: '카드나 논문을 길게 누르면 위시리스트에 추가됩니다',
+      wish_hint: '길게 눌러 위시리스트에 추가/제거', pinned_papers: '핀한 논문', floor: '층',
       footer: '데이터 출처: icml.cc (2026 가상 사이트) · 모든 시간은 한국 표준시(KST) 기준 · 초록 원문은 영어로 제공됩니다.',
       search_hint_papers: '논문 제목도 함께 검색됩니다',
       day_note: { 3: '본회의 1일차', 4: '본회의 2일차', 5: '본회의 3일차', 6: '워크숍 1일차', 7: '워크숍 2일차' }
@@ -36,6 +38,8 @@
       load_all: 'Also search all 6,035 papers — one-time load (~9MB)',
       loading: 'Loading…', show_original: 'Show English original', hide_original: 'Hide original',
       orig_label: 'Original (EN)', in_session: 'Session', view_original_title: 'Original title',
+      wish: 'Wishlist', route: 'Route', wish_empty: 'Long-press any card or paper to add it to your wishlist',
+      wish_hint: 'Long-press to add/remove from wishlist', pinned_papers: 'Pinned papers', floor: 'floor',
       footer: 'Data source: icml.cc (2026 virtual site) · All times are KST (Korea Standard Time).',
       search_hint_papers: 'Paper titles are searched too',
       day_note: { 3: 'Main Conference Day 1', 4: 'Main Conference Day 2', 5: 'Main Conference Day 3', 6: 'Workshops Day 1', 7: 'Workshops Day 2' }
@@ -53,7 +57,73 @@
     oral: 'var(--c-oral)', poster: 'var(--c-poster)', invited: 'var(--c-invited)',
     workshop: 'var(--c-workshop)', social: 'var(--c-social)', ops: 'var(--c-ops)'
   };
-  var CHIP_ORDER = ['all', 'oral', 'poster', 'invited', 'workshop', 'social', 'ops'];
+  var CHIP_ORDER = ['all', 'wish', 'oral', 'poster', 'invited', 'workshop', 'social', 'ops'];
+
+  // ---------------- wishlist store ----------------
+  var wish = { events: {}, papers: {} };
+  try { wish = JSON.parse(localStorage.getItem('icml_wish')) || wish; } catch (e) { /* fresh */ }
+  wish.events = wish.events || {};
+  wish.papers = wish.papers || {};
+  function saveWish() { localStorage.setItem('icml_wish', JSON.stringify(wish)); }
+  function wishCount() { return Object.keys(wish.events).length + Object.keys(wish.papers).length; }
+  function toggleEventPin(e) {
+    if (wish.events[e.id]) delete wish.events[e.id];
+    else wish.events[e.id] = 1;
+    saveWish();
+  }
+  function togglePaperPin(p, sid) {
+    if (wish.papers[p.id]) delete wish.papers[p.id];
+    else wish.papers[p.id] = { s: sid || null, en: p.en, ko: p.ko, pos: p.pos, time: p.time };
+    saveWish();
+  }
+
+  // long-press to pin (mouse hold works too); suppresses the following click
+  function longPress(el, fn) {
+    var timer = null, fired = false;
+    function start(ev) {
+      if (ev.type === 'mousedown' && ev.button !== 0) return;
+      fired = false;
+      el.classList.add('pressing');
+      timer = setTimeout(function () {
+        fired = true;
+        el._lpFired = true;
+        el.classList.remove('pressing');
+        fn();
+      }, 480);
+    }
+    function cancel() { clearTimeout(timer); timer = null; el.classList.remove('pressing'); }
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('mousedown', start);
+    ['touchend', 'touchmove', 'touchcancel', 'mouseup', 'mouseleave'].forEach(function (t) {
+      el.addEventListener(t, cancel);
+    });
+    el.addEventListener('contextmenu', function (ev) { if (fired || timer) ev.preventDefault(); });
+  }
+
+  // room -> COEX floor (from media.icml.cc/Conferences/ICML2026/coex_map.svg)
+  function floorOf(room) {
+    if (!room) return null;
+    var r = room.toLowerCase();
+    if (r.indexOf('hall c') >= 0) return '4F';
+    if (r.indexOf('hall d') >= 0 || r.indexOf('auditorium') >= 0 || r.indexOf('hall e') >= 0) return '3F';
+    if (r.indexOf('asem') >= 0) return '2F';
+    if (r.indexOf('hall a') >= 0 || r.indexOf('hall b') >= 0 || r.indexOf('grand ballroom') >= 0) return '1F';
+    var m = r.match(/room\s*e\d/) || (r.indexOf('room e') >= 0 ? ['e'] : null);
+    if (m) return '3F';
+    var n = r.match(/room\s*(\d)\d{2}/);
+    if (n) return n[1] + 'F';
+    return null;
+  }
+  function roomWithFloor(room) {
+    var f = floorOf(room);
+    return room ? room + (f ? ' · ' + f : '') : '';
+  }
+
+  // event id -> {ev, day} index
+  var EV_INDEX = {};
+  SCHED.days.forEach(function (d) {
+    d.events.forEach(function (e) { EV_INDEX[e.id] = { ev: e, day: d }; });
+  });
 
   // ---------------- state ----------------
   var params = new URLSearchParams(location.search);
@@ -196,6 +266,13 @@
       oninput: debounce(function (ev) { state.q = ev.target.value.trim(); renderMain(); }, 220)
     });
     var chips = h('div', { class: 'chips' }, CHIP_ORDER.map(function (c) {
+      if (c === 'wish') {
+        var n = wishCount();
+        return h('button', {
+          class: 'chip chip-wish' + (state.chip === c ? ' on' : ''),
+          onclick: function () { state.chip = c; render(); }
+        }, ['⭐ ' + t('wish') + (n ? ' ' + n : '')]);
+      }
       var dot = c === 'all' ? null : h('span', { class: 'dot', style: 'background:' + GROUP_COLOR[c] });
       return h('button', {
         class: 'chip' + (state.chip === c ? ' on' : ''),
@@ -222,12 +299,14 @@
 
   function eventMatchesChip(e) {
     if (state.chip === 'all') return true;
+    if (state.chip === 'wish') return !!wish.events[e.id];
     return TYPE_GROUP[e.type] === state.chip;
   }
 
   function renderTimeline(main) {
     var day = SCHED.days.find(function (d) { return d.day === state.day; });
     if (!day) return;
+    if (state.chip === 'wish') return renderWishDay(main, day);
     main.appendChild(h('div', { class: 'date-heading' }, [loc(day.dateFull) + ' — ' + t('day_note')[day.day]]));
 
     var evs = day.events.filter(eventMatchesChip);
@@ -251,34 +330,121 @@
     var color = GROUP_COLOR[g];
     var compact = (g === 'ops');
     var times = e.start ? (e.start + (e.end ? ' – ' + e.end : '')) : '';
+    var pinned = !!wish.events[e.id];
+    var card;
+    function onOpen() {
+      if (card._lpFired) { card._lpFired = false; return; }
+      openEvent(e, day);
+    }
     if (compact) {
-      return h('button', {
-        class: 'card compact', style: '--tc:' + color,
-        onclick: function () { openEvent(e, day); }
+      card = h('button', {
+        class: 'card compact' + (pinned ? ' pinned' : ''), style: '--tc:' + color,
+        title: t('wish_hint'), onclick: onOpen
       }, [
         h('h3', null, [loc(e.title)]),
         h('span', { class: 'times' }, [times])
       ]);
+    } else {
+      var subs = [];
+      if (e.speaker) subs.push(e.speaker);
+      else if (e.organizers) subs.push(e.organizers);
+      card = h('button', {
+        class: 'card' + (pinned ? ' pinned' : ''), style: '--tc:' + color,
+        title: t('wish_hint'), onclick: onOpen
+      }, [
+        h('div', { class: 'rowtop' }, [
+          h('span', { class: 'badge' }, [loc(e.typeName)]),
+          h('span', { class: 'times' }, [times]),
+          e.room ? h('span', { class: 'room' }, ['· ' + roomWithFloor(e.room)]) : null
+        ]),
+        h('h3', null, [loc(e.title)]),
+        subs.length ? h('div', { class: 'sub' }, [subs.join(' · ')]) : null,
+        e.nPapers ? h('div', { class: 'npapers' }, [
+          state.lang === 'ko' ? '발표 ' + e.nPapers + '편' : e.nPapers + ' papers'
+        ]) : null,
+        ctxLabel ? h('div', { class: 'ctx' }, [ctxLabel]) : null
+      ]);
     }
-    var subs = [];
-    if (e.speaker) subs.push(e.speaker);
-    else if (e.organizers) subs.push(e.organizers);
-    return h('button', {
-      class: 'card', style: '--tc:' + color,
-      onclick: function () { openEvent(e, day); }
-    }, [
-      h('div', { class: 'rowtop' }, [
-        h('span', { class: 'badge' }, [loc(e.typeName)]),
-        h('span', { class: 'times' }, [times]),
-        e.room ? h('span', { class: 'room' }, ['· ' + e.room]) : null
-      ]),
-      h('h3', null, [loc(e.title)]),
-      subs.length ? h('div', { class: 'sub' }, [subs.join(' · ')]) : null,
-      e.nPapers ? h('div', { class: 'npapers' }, [
-        state.lang === 'ko' ? '발표 ' + e.nPapers + '편' : e.nPapers + ' papers'
-      ]) : null,
-      ctxLabel ? h('div', { class: 'ctx' }, [ctxLabel]) : null
-    ]);
+    longPress(card, function () {
+      toggleEventPin(e);
+      card.classList.toggle('pinned', !!wish.events[e.id]);
+      var chip = document.querySelector('.chip-wish');
+      if (chip) {
+        var n = wishCount();
+        chip.textContent = '⭐ ' + t('wish') + (n ? ' ' + n : '');
+      }
+      if (state.chip === 'wish') renderMain();
+    });
+    return card;
+  }
+
+  // ---------------- wishlist day view ----------------
+  function renderWishDay(main, day) {
+    main.appendChild(h('div', { class: 'date-heading' }, [loc(day.dateFull) + ' — ⭐ ' + t('wish')]));
+
+    // pinned events on this day
+    var items = [];   // {start, ev, papers:[...]}
+    day.events.forEach(function (e) {
+      if (wish.events[e.id]) items.push({ ev: e, papers: [] });
+    });
+    // pinned papers whose session is on this day
+    Object.keys(wish.papers).forEach(function (pid) {
+      var w = wish.papers[pid];
+      var hit = w.s && EV_INDEX[w.s];
+      if (!hit || hit.day.day !== day.day) return;
+      var found = items.find(function (it) { return it.ev.id === hit.ev.id; });
+      if (!found) { found = { ev: hit.ev, papers: [] }; items.push(found); }
+      found.papers.push(Object.assign({ id: pid }, w));
+    });
+    if (!items.length) {
+      main.appendChild(h('div', { class: 'empty' }, [t('wish_empty')]));
+      return;
+    }
+    items.sort(function (a, b) { return (a.ev.start || '').localeCompare(b.ev.start || ''); });
+
+    // route strip: time + room(floor) hops
+    var hops = [];
+    items.forEach(function (it) {
+      if (!it.ev.start) return;
+      var label = it.ev.start + ' ' + (it.ev.room ? roomWithFloor(it.ev.room) : loc(it.ev.title).slice(0, 14));
+      if (!hops.length || hops[hops.length - 1] !== label) hops.push(label);
+    });
+    if (hops.length > 1 || (hops.length === 1 && items.length)) {
+      main.appendChild(h('div', { class: 'route-strip' }, [
+        h('span', { class: 'route-label' }, [t('route')]),
+        h('span', { class: 'route-hops' }, [hops.join('  →  ')])
+      ]));
+    }
+
+    // grouped timeline
+    var groups = {};
+    items.forEach(function (it) {
+      var k = it.ev.start || '——';
+      (groups[k] = groups[k] || []).push(it);
+    });
+    Object.keys(groups).sort().forEach(function (k) {
+      var cards = h('div', { class: 'tcards' }, []);
+      groups[k].forEach(function (it) {
+        cards.appendChild(renderCard(it.ev, day));
+        if (it.papers.length) {
+          it.papers.sort(function (a, b) { return (a.time || a.pos || '').localeCompare(b.time || b.pos || ''); });
+          var box = h('div', { class: 'wish-papers' }, [
+            h('div', { class: 'pcount' }, [t('pinned_papers') + ' · ' + it.papers.length])
+          ]);
+          cards.appendChild(box);
+          loadPapers(it.ev.id).then(function (full) {
+            var map = {};
+            (full || []).forEach(function (fp) { map[fp.id] = fp; });
+            box.appendChild(h('div', null, it.papers.map(function (w) {
+              return renderPaperItem(map[w.id] || w, { sid: it.ev.id });
+            })));
+          });
+        }
+      });
+      main.appendChild(h('section', { class: 'tgroup' }, [
+        h('div', { class: 'tlabel' }, [k]), cards
+      ]));
+    });
   }
 
   // ---------------- search ----------------
@@ -332,7 +498,8 @@
       var pw = h('div');
       hits.slice(0, 100).forEach(function (hit) {
         pw.appendChild(renderPaperItem(hit.p, {
-          ctx: loc(hit.d.label) + ' · ' + loc(hit.e.title) + (hit.e.room ? ' · ' + hit.e.room : '')
+          sid: hit.e.id,
+          ctx: loc(hit.d.label) + ' · ' + loc(hit.e.title) + (hit.e.room ? ' · ' + roomWithFloor(hit.e.room) : '')
         }));
       });
       if (hits.length > 100) pw.appendChild(h('div', { class: 'results-note' }, ['+' + (hits.length - 100)]));
@@ -365,7 +532,7 @@
         h('div', { class: 'meta' }, [
           h('span', null, ['🗓 ' + loc(day.dateFull)]),
           times ? h('span', null, ['🕐 ' + times + ' KST']) : null,
-          e.room ? h('span', null, ['📍 ' + e.room]) : null,
+          e.room ? h('span', null, ['📍 ' + roomWithFloor(e.room)]) : null,
           e.speaker ? h('span', null, ['🎤 ' + e.speaker]) : null,
           e.organizers ? h('span', null, ['👥 ' + e.organizers]) : null
         ])
@@ -436,7 +603,7 @@
       loadPapers(e.id).then(function (papers) {
         psec.innerHTML = '';
         psec.appendChild(h('h4', null, [plabel + ' · ' + papers.length]));
-        psec.appendChild(renderPaperList(papers));
+        psec.appendChild(renderPaperList(papers, e.id));
       });
     }
 
@@ -446,7 +613,7 @@
   }
 
   // ---------------- paper list w/ filter + incremental render ----------------
-  function renderPaperList(papers) {
+  function renderPaperList(papers, sid) {
     var wrap = h('div');
     var listEl = h('div');
     var count = h('div', { class: 'pcount' });
@@ -471,7 +638,7 @@
     function renderChunk() {
       var frag = document.createDocumentFragment();
       var end = Math.min(shown + CHUNK, filtered.length);
-      for (var i = shown; i < end; i++) frag.appendChild(renderPaperItem(filtered[i]));
+      for (var i = shown; i < end; i++) frag.appendChild(renderPaperItem(filtered[i], { sid: sid }));
       shown = end;
       listEl.insertBefore(frag, sentinel);
       updateCount();
@@ -501,12 +668,15 @@
     var title = (state.lang === 'ko' && p.ko) ? p.ko : (p.en || '');
     var expanded = false;
     var bodyEl = null;
-    var item = h('div', { class: 'paper' + (opts.ctx ? ' paper-hit' : '') });
+    var pinned = !!wish.papers[p.id];
+    var item = h('div', { class: 'paper' + (opts.ctx ? ' paper-hit' : '') + (pinned ? ' pinned' : '') });
     var tags = [];
     if (p.time) tags.push(h('span', { class: 'ptag oraltime' }, [p.time]));
     if (p.pos) tags.push(h('span', { class: 'ptag' }, [p.pos]));
     var btn = h('button', {
+      title: t('wish_hint'),
       onclick: function () {
+        if (btn._lpFired) { btn._lpFired = false; return; }
         expanded = !expanded;
         if (expanded && !bodyEl) {
           var useKoAbs = state.lang === 'ko' && p.absKo;
@@ -543,6 +713,17 @@
       p.authors ? h('div', { class: 'pa' }, [p.authors]) : null,
       opts.ctx ? h('div', { class: 'ctx' }, [opts.ctx]) : null
     ]);
+    if (p.id) {
+      longPress(btn, function () {
+        togglePaperPin(p, opts.sid);
+        item.classList.toggle('pinned', !!wish.papers[p.id]);
+        var chip = document.querySelector('.chip-wish');
+        if (chip) {
+          var n = wishCount();
+          chip.textContent = '⭐ ' + t('wish') + (n ? ' ' + n : '');
+        }
+      });
+    }
     item.appendChild(btn);
     return item;
   }
@@ -552,6 +733,19 @@
   }
 
   // ---------------- boot ----------------
+  // dev/test: seed pins from URL (in-memory only; persisted on next user toggle)
+  if (params.get('pin')) {
+    params.get('pin').split(',').forEach(function (id) {
+      if (id.indexOf('@') > 0) {
+        var pr = id.split('@');
+        wish.papers[pr[0]] = { s: pr[1] };
+      } else {
+        wish.events[id] = 1;
+      }
+    });
+  }
+  if (params.get('chip')) state.chip = params.get('chip');
+
   var savedTheme = params.get('theme') || localStorage.getItem('icml_theme');
   if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
   else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
