@@ -20,6 +20,8 @@
       load_all: '전체 논문(6,035편)에서도 검색하기 — 최초 1회 로딩(약 9MB)',
       loading: '불러오는 중…', show_original: '영어 원문 보기', hide_original: '원문 닫기',
       orig_label: '원문(EN)', in_session: '세션', view_original_title: '원제',
+      install_app: '앱 설치', offline_save: '⬇ 오프라인 저장 (전체 데이터, 약 20MB)', offline_saving: '저장 중… ',
+      offline_done: '오프라인 저장 완료 ✓', offline_desc: '설치 후 저장하면 인터넷 없이도 전체 일정·논문을 볼 수 있습니다.',
       wish: '위시', route: '동선', wish_empty: '카드나 논문을 길게 누르면 위시리스트에 추가됩니다',
       wish_hint: '길게 눌러 위시리스트에 추가/제거', pinned_papers: '핀한 논문', floor: '층',
       footer: '데이터 출처: icml.cc (2026 가상 사이트) · 모든 시간은 한국 표준시(KST) 기준 · 초록 원문은 영어로 제공됩니다.',
@@ -38,6 +40,8 @@
       load_all: 'Also search all 6,035 papers — one-time load (~9MB)',
       loading: 'Loading…', show_original: 'Show English original', hide_original: 'Hide original',
       orig_label: 'Original (EN)', in_session: 'Session', view_original_title: 'Original title',
+      install_app: 'Install app', offline_save: '⬇ Save for offline (all data, ~20MB)', offline_saving: 'Saving… ',
+      offline_done: 'Saved for offline ✓', offline_desc: 'Install and save to browse the full schedule and papers without internet.',
       wish: 'Wishlist', route: 'Route', wish_empty: 'Long-press any card or paper to add it to your wishlist',
       wish_hint: 'Long-press to add/remove from wishlist', pinned_papers: 'Pinned papers', floor: 'floor',
       footer: 'Data source: icml.cc (2026 virtual site) · All times are KST (Korea Standard Time).',
@@ -235,6 +239,15 @@
           h('span', { class: 'venue' }, [t('venue') + ' · 7.7 – 7.11'])
         ]),
         h('div', { class: 'controls' }, [
+          h('button', {
+            id: 'btn-install', class: 'install-btn', title: t('install_app'),
+            style: installEvt ? '' : 'display:none',
+            onclick: function () {
+              if (!installEvt) return;
+              installEvt.prompt();
+              installEvt.userChoice.then(function () { installEvt = null; render(); });
+            }
+          }, ['📲 ' + t('install_app')]),
           h('div', { class: 'seg' }, [
             h('button', { class: state.lang === 'ko' ? 'on' : '', onclick: function () { setLang('ko'); } }, ['한국어']),
             h('button', { class: state.lang === 'en' ? 'on' : '', onclick: function () { setLang('en'); } }, ['EN'])
@@ -729,8 +742,41 @@
   }
 
   function renderFooter() {
-    return h('footer', null, [h('div', null, [t('footer')])]);
+    var kids = [h('div', null, [t('footer')])];
+    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+      var btn = h('button', {
+        class: 'offline-btn',
+        onclick: function () {
+          btn.disabled = true;
+          btn.textContent = t('offline_saving');
+          loadAllPapers(function (done, total) {
+            btn.textContent = t('offline_saving') + done + '/' + total;
+          }).then(function () {
+            btn.textContent = t('offline_done');
+          });
+        }
+      }, [t('offline_save')]);
+      kids.push(h('div', { class: 'offline-row' }, [btn, h('span', { class: 'offline-desc' }, [t('offline_desc')])]));
+    }
+    return h('footer', null, kids);
   }
+
+  // ---------------- PWA ----------------
+  var installEvt = null;
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* non-fatal */ });
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installEvt = e;
+    var b = document.getElementById('btn-install');
+    if (b) b.style.display = '';
+  });
+  window.addEventListener('appinstalled', function () {
+    installEvt = null;
+    var b = document.getElementById('btn-install');
+    if (b) b.style.display = 'none';
+  });
 
   // ---------------- boot ----------------
   // dev/test: seed pins from URL (in-memory only; persisted on next user toggle)
