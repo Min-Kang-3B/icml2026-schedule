@@ -31,6 +31,7 @@ or_venues = load('or_venues.json')
 w_matches = load('workshop_matches.json')
 ws_extract = load('ws_extract.json')     # wid -> {has_schedule,tz,schedule,speakers}
 ws_projpages = load('ws_projpages.json') # wid -> {title, proj}
+ws_paper_tags = load('ws_paper_tags.json')  # paper_id -> "Oral" | "Spotlight" (OpenReview designation)
 
 abstracts = {}
 if os.path.exists('abstracts.jsonl'):
@@ -148,6 +149,9 @@ def workshop_paper_entry(p):
         ent['absKo'] = ko_wabs[p['id']]
     if p.get('forum'):
         ent['link'] = p['forum']
+    tag = ws_paper_tags.get(p['id'])
+    if tag:
+        ent['tag'] = tag
     return ent
 
 # ---------- build ----------
@@ -260,9 +264,15 @@ for day in sched['days']:
             venue = or_venues.get(w_matches[eid], {})
             wp = [workshop_paper_entry(p) for p in venue.get('papers', []) if p.get('title')]
             if wp:
+                # surface orally-presented papers first: Oral, then Spotlight, then the rest (stable)
+                rank = {'Oral': 0, 'Spotlight': 1}
+                wp.sort(key=lambda e: rank.get(e.get('tag'), 2))
                 paper_files[eid] = wp
                 ev['nPapers'] = len(wp)
                 ev['papersSource'] = 'openreview'
+                nprom = sum(1 for e in wp if e.get('tag'))
+                if nprom:
+                    ev['nPromoted'] = nprom
 
         if drec:
             details[eid] = drec

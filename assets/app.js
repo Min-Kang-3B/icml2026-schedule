@@ -695,7 +695,8 @@
       oninput: debounce(function (ev) {
         var q = ev.target.value.trim().toLowerCase();
         filtered = !q ? papers : papers.filter(function (p) {
-          return ((p.en || '') + ' ' + (p.ko || '') + ' ' + (p.authors || '') + ' ' + (p.pos || '')).toLowerCase().indexOf(q) >= 0;
+          var tagx = p.tag ? (p.tag + (p.tag === 'Oral' ? ' 구두' : ' 스포트라이트')) : '';
+          return ((p.en || '') + ' ' + (p.ko || '') + ' ' + (p.authors || '') + ' ' + (p.pos || '') + ' ' + tagx).toLowerCase().indexOf(q) >= 0;
         });
         reset();
       }, 200)
@@ -740,6 +741,13 @@
     var pinned = !!wish.papers[p.id];
     var item = h('div', { class: 'paper' + (opts.ctx ? ' paper-hit' : '') + (pinned ? ' pinned' : '') });
     var tags = [];
+    if (p.tag) {
+      var tcls = p.tag === 'Oral' ? 'ptag-oral' : 'ptag-spot';
+      var tlabel = p.tag === 'Oral'
+        ? (state.lang === 'ko' ? '🎓 구두' : '🎓 Oral')
+        : (state.lang === 'ko' ? '✨ 스포트라이트' : '✨ Spotlight');
+      tags.push(h('span', { class: 'ptag ' + tcls }, [tlabel]));
+    }
     if (p.time) tags.push(h('span', { class: 'ptag oraltime' }, [p.time]));
     if (p.pos) tags.push(h('span', { class: 'ptag' }, [p.pos]));
     var btn = h('button', {
