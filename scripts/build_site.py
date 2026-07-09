@@ -29,6 +29,8 @@ ko_wtitles = load('ko_wtitles.json')
 ko_wabs = load('ko_wabs.json')
 or_venues = load('or_venues.json')
 w_matches = load('workshop_matches.json')
+ws_extract = load('ws_extract.json')     # wid -> {has_schedule,tz,schedule,speakers}
+ws_projpages = load('ws_projpages.json') # wid -> {title, proj}
 
 abstracts = {}
 if os.path.exists('abstracts.jsonl'):
@@ -207,7 +209,35 @@ for day in sched['days']:
         if sps:
             drec['speakers'] = sps
         if det.get('links'):
-            drec['links'] = det['links']
+            drec['links'] = list(det['links'])
+
+        # workshop program (schedule + invited speakers) scraped from the workshop's own site
+        if e['type'] == 'workshop':
+            proj = (ws_projpages.get(eid) or {}).get('proj')
+            if proj:
+                drec.setdefault('links', [])
+                if not any(l.get('url') == proj for l in drec['links']):
+                    drec['links'].insert(0, {'label': 'Workshop site', 'url': proj})
+            prog = ws_extract.get(eid)
+            if prog and (prog.get('schedule') or prog.get('speakers')):
+                p = {}
+                if prog.get('has_schedule') and prog.get('schedule'):
+                    p['tz'] = prog.get('tz') or ''
+                    p['schedule'] = [
+                        {k: it.get(k, '') for k in ('time', 'en', 'ko', 'speaker', 'kind')}
+                        for it in prog['schedule'] if it.get('en') or it.get('speaker')
+                    ]
+                # dedupe speakers by name, keep those with a real name
+                seen = set(); sp2 = []
+                for sp in prog.get('speakers', []):
+                    nm = (sp.get('name') or '').strip()
+                    if nm and nm.lower() not in seen:
+                        seen.add(nm.lower())
+                        sp2.append({'name': nm, 'affil': sp.get('affil', '') or '', 'role': sp.get('role', '') or ''})
+                if sp2:
+                    p['speakers'] = sp2
+                if p.get('schedule') or p.get('speakers'):
+                    drec['program'] = p
 
         # children -> paper file
         if e.get('children'):

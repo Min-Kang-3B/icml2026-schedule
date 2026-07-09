@@ -24,6 +24,8 @@
       offline_done: '오프라인 저장 완료 ✓', offline_desc: '설치 후 저장하면 인터넷 없이도 전체 일정·논문을 볼 수 있습니다.',
       wish: '위시', route: '동선', wish_empty: '카드나 논문을 길게 누르면 위시리스트에 추가됩니다',
       wish_hint: '길게 눌러 위시리스트에 추가/제거', pinned_papers: '핀한 논문', floor: '층',
+      program: '프로그램', invited_speakers: '초청 연사', schedule_note: '워크숍 자체 사이트 기준 · 변경될 수 있음',
+      program_time: '시간', program_session: '세션', program_speaker: '발표자',
       footer: '데이터 출처: icml.cc (2026 가상 사이트) · 모든 시간은 한국 표준시(KST) 기준 · 초록 원문은 영어로 제공됩니다.',
       search_hint_papers: '논문 제목도 함께 검색됩니다',
       day_note: { 3: '본회의 1일차', 4: '본회의 2일차', 5: '본회의 3일차', 6: '워크숍 1일차', 7: '워크숍 2일차' }
@@ -44,6 +46,8 @@
       offline_done: 'Saved for offline ✓', offline_desc: 'Install and save to browse the full schedule and papers without internet.',
       wish: 'Wishlist', route: 'Route', wish_empty: 'Long-press any card or paper to add it to your wishlist',
       wish_hint: 'Long-press to add/remove from wishlist', pinned_papers: 'Pinned papers', floor: 'floor',
+      program: 'Program', invited_speakers: 'Invited Speakers', schedule_note: 'From the workshop’s own site · subject to change',
+      program_time: 'Time', program_session: 'Session', program_speaker: 'Speaker',
       footer: 'Data source: icml.cc (2026 virtual site) · All times are KST (Korea Standard Time).',
       search_hint_papers: 'Paper titles are searched too',
       day_note: { 3: 'Main Conference Day 1', 4: 'Main Conference Day 2', 5: 'Main Conference Day 3', 6: 'Workshops Day 1', 7: 'Workshops Day 2' }
@@ -580,6 +584,11 @@
       body.appendChild(sec);
     }
 
+    // workshop program (schedule + invited speakers) from the workshop's own site
+    if (det.program) {
+      renderProgram(body, det.program);
+    }
+
     // speakers
     if (det.speakers && det.speakers.length) {
       body.appendChild(h('div', { class: 'msec' }, [
@@ -623,6 +632,53 @@
     var modal = h('div', { class: 'modal' }, [head, body]);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+  }
+
+  // ---------------- workshop program (schedule + invited speakers) ----------------
+  var KIND_ICON = {
+    opening: '🎬', closing: '🏁', oral: '🎓', invited: '🎤', keynote: '⭐',
+    poster: '📌', panel: '💬', break: '☕', lunch: '🍽', spotlight: '✨',
+    contributed: '📄', award: '🏆', other: '•'
+  };
+
+  function renderProgram(body, prog) {
+    var sec = h('div', { class: 'msec' }, [h('h4', null, [t('program')])]);
+
+    // invited speakers
+    if (prog.speakers && prog.speakers.length) {
+      sec.appendChild(h('div', { class: 'prog-sub' }, [t('invited_speakers')]));
+      sec.appendChild(h('div', { class: 'spk-chips' }, prog.speakers.map(function (sp) {
+        return h('div', { class: 'spk-chip' }, [
+          h('span', { class: 'spk-nm' }, [sp.name]),
+          sp.affil ? h('span', { class: 'spk-af' }, [sp.affil]) : null
+        ]);
+      })));
+    }
+
+    // schedule table
+    if (prog.schedule && prog.schedule.length) {
+      var useKo = state.lang === 'ko';
+      var rows = prog.schedule.map(function (it) {
+        var label = (useKo && it.ko) ? it.ko : (it.en || '');
+        var icon = KIND_ICON[it.kind] || KIND_ICON.other;
+        var kindCls = ['break', 'lunch'].indexOf(it.kind) >= 0 ? ' prow-muted' : '';
+        return h('div', { class: 'prow' + kindCls }, [
+          h('div', { class: 'ptime' }, [it.time || '']),
+          h('div', { class: 'pbody' }, [
+            h('div', { class: 'psession' }, [
+              h('span', { class: 'pkind' }, [icon + ' ']),
+              label
+            ]),
+            it.speaker ? h('div', { class: 'pspk' }, ['🎤 ' + it.speaker]) : null
+          ])
+        ]);
+      });
+      var note = prog.tz ? (prog.tz + ' · ' + t('schedule_note')) : t('schedule_note');
+      sec.appendChild(h('div', { class: 'prog-note' }, [note]));
+      sec.appendChild(h('div', { class: 'ptable' }, rows));
+    }
+
+    body.appendChild(sec);
   }
 
   // ---------------- paper list w/ filter + incremental render ----------------
