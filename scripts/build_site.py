@@ -227,10 +227,19 @@ for day in sched['days']:
                 p = {}
                 if prog.get('has_schedule') and prog.get('schedule'):
                     p['tz'] = prog.get('tz') or ''
-                    p['schedule'] = [
-                        {k: it.get(k, '') for k in ('time', 'en', 'ko', 'speaker', 'kind')}
-                        for it in prog['schedule'] if it.get('en') or it.get('speaker')
-                    ]
+                    sched_out = []
+                    for it in prog['schedule']:
+                        if not (it.get('en') or it.get('speaker')):
+                            continue
+                        row = {k: it.get(k, '') for k in ('time', 'en', 'ko', 'speaker', 'kind')}
+                        subs = it.get('items')
+                        if isinstance(subs, list) and subs:
+                            row['items'] = [
+                                {k: s.get(k, '') for k in ('en', 'ko', 'speaker')}
+                                for s in subs if s.get('en')
+                            ]
+                        sched_out.append(row)
+                    p['schedule'] = sched_out
                 # dedupe speakers by name, keep those with a real name
                 seen = set(); sp2 = []
                 for sp in prog.get('speakers', []):

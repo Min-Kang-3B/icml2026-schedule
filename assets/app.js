@@ -662,6 +662,16 @@
         var label = (useKo && it.ko) ? it.ko : (it.en || '');
         var icon = KIND_ICON[it.kind] || KIND_ICON.other;
         var kindCls = ['break', 'lunch'].indexOf(it.kind) >= 0 ? ' prow-muted' : '';
+        var sublist = null;
+        if (it.items && it.items.length) {
+          sublist = h('ol', { class: 'psub' }, it.items.map(function (s) {
+            var sl = (useKo && s.ko) ? s.ko : (s.en || '');
+            return h('li', null, [
+              sl,
+              s.speaker ? h('span', { class: 'psub-spk' }, [' — ' + s.speaker]) : null
+            ]);
+          }));
+        }
         return h('div', { class: 'prow' + kindCls }, [
           h('div', { class: 'ptime' }, [it.time || '']),
           h('div', { class: 'pbody' }, [
@@ -669,7 +679,8 @@
               h('span', { class: 'pkind' }, [icon + ' ']),
               label
             ]),
-            it.speaker ? h('div', { class: 'pspk' }, ['🎤 ' + it.speaker]) : null
+            it.speaker ? h('div', { class: 'pspk' }, ['🎤 ' + it.speaker]) : null,
+            sublist
           ])
         ]);
       });

@@ -235,6 +235,9 @@ a:hover { text-decoration: underline; }
 .psession { font-size: 14px; font-weight: 600; color: var(--text); }
 .pkind { opacity: .9; }
 .pspk { font-size: 12.5px; color: var(--text2); margin-top: 3px; }
+.psub { margin: 6px 0 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.psub li { font-size: 13px; color: var(--text2); line-height: 1.4; }
+.psub-spk { color: var(--text3); }
 @media (max-width: 520px) {
   .prow { flex-direction: column; gap: 3px; }
   .ptime { flex-basis: auto; }
