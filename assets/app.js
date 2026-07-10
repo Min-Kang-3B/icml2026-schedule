@@ -376,6 +376,9 @@
         ]),
         h('h3', null, [loc(e.title)]),
         subs.length ? h('div', { class: 'sub' }, [subs.join(' · ')]) : null,
+        (e.posterLoc && e.posterLoc.length) ? h('div', { class: 'posterloc' }, [
+          '📍 ' + (state.lang === 'ko' ? '포스터: ' : 'Posters: ') + e.posterLoc.join(' / ')
+        ]) : null,
         e.nPapers ? h('div', { class: 'npapers' }, [
           state.lang === 'ko' ? '발표 ' + e.nPapers + '편' : e.nPapers + ' papers'
         ]) : null,
@@ -643,6 +646,17 @@
 
   function renderProgram(body, prog) {
     var sec = h('div', { class: 'msec' }, [h('h4', null, [t('program')])]);
+
+    // prominent poster-location banner (Hall / board numbers) when the site publishes it
+    if (prog.posterLoc && prog.posterLoc.length) {
+      sec.appendChild(h('div', { class: 'poster-banner' }, [
+        h('span', { class: 'pb-ico' }, ['📍']),
+        h('span', null, [
+          h('b', null, [state.lang === 'ko' ? '포스터 위치 ' : 'Poster location ']),
+          prog.posterLoc.join('  ·  ')
+        ])
+      ]));
+    }
 
     // invited speakers
     if (prog.speakers && prog.speakers.length) {

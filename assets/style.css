@@ -238,6 +238,18 @@ a:hover { text-decoration: underline; }
 .psub { margin: 6px 0 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .psub li { font-size: 13px; color: var(--text2); line-height: 1.4; }
 .psub-spk { color: var(--text3); }
+.poster-banner {
+  display: flex; gap: 8px; align-items: baseline; margin-bottom: 14px; padding: 10px 13px;
+  border-radius: var(--radius); background: color-mix(in srgb, var(--c-workshop) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-workshop) 35%, transparent);
+  font-size: 13.5px; color: var(--text); line-height: 1.45;
+}
+.poster-banner .pb-ico { flex: 0 0 auto; }
+/* poster location on the timeline card */
+.posterloc {
+  margin-top: 6px; font-size: 12.5px; font-weight: 700; color: var(--c-workshop);
+  font-variant-numeric: tabular-nums;
+}
 @media (max-width: 520px) {
   .prow { flex-direction: column; gap: 3px; }
   .ptime { flex-basis: auto; }

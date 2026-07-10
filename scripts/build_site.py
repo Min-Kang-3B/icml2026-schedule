@@ -33,6 +33,24 @@ ws_extract = load('ws_extract.json')     # wid -> {has_schedule,tz,schedule,spea
 ws_projpages = load('ws_projpages.json') # wid -> {title, proj}
 ws_paper_tags = load('ws_paper_tags.json')  # paper_id -> "Oral" | "Spotlight" (OpenReview designation)
 
+def poster_locations(schedule):
+    """Pull concise 'Hall X · <board ranges>' strings from poster-session rows that carry a location."""
+    locs = []
+    for it in schedule:
+        if it.get('kind') != 'poster':
+            continue
+        en = it.get('en', '') or ''
+        m = re.search(r'((?:Row\s*[\d\-–,\s]+in\s*)?(?:Hall|Room)\s*[A-E]\d?\b[^)\n]*)', en, re.I)
+        if not m:
+            continue
+        loc = m.group(1)
+        loc = loc.replace('(', ' ').replace(')', ' ')   # avoid dangling parens
+        loc = re.sub(r'\s*,?\s*inclusive\s*', ' ', loc, flags=re.I)
+        loc = re.sub(r'\s+', ' ', loc).strip(' ,.')
+        if loc and loc not in locs:
+            locs.append(loc)
+    return locs
+
 abstracts = {}
 if os.path.exists('abstracts.jsonl'):
     for line in open('abstracts.jsonl'):
@@ -249,6 +267,11 @@ for day in sched['days']:
                         sp2.append({'name': nm, 'affil': sp.get('affil', '') or '', 'role': sp.get('role', '') or ''})
                 if sp2:
                     p['speakers'] = sp2
+                if p.get('schedule'):
+                    plocs = poster_locations(p['schedule'])
+                    if plocs:
+                        p['posterLoc'] = plocs
+                        ev['posterLoc'] = plocs   # surface on the card (schedule.js) too
                 if p.get('schedule') or p.get('speakers'):
                     drec['program'] = p
 
