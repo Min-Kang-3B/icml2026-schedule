@@ -647,13 +647,15 @@
   function renderProgram(body, prog) {
     var sec = h('div', { class: 'msec' }, [h('h4', null, [t('program')])]);
 
-    // prominent poster-location banner (Hall / board numbers) when the site publishes it
+    // prominent poster-location banner (Hall / board numbers)
     if (prog.posterLoc && prog.posterLoc.length) {
+      var note = prog.posterNote ? ((state.lang === 'ko' && prog.posterNote.ko) ? prog.posterNote.ko : prog.posterNote.en) : null;
       sec.appendChild(h('div', { class: 'poster-banner' }, [
         h('span', { class: 'pb-ico' }, ['📍']),
         h('span', null, [
           h('b', null, [state.lang === 'ko' ? '포스터 위치 ' : 'Poster location ']),
-          prog.posterLoc.join('  ·  ')
+          prog.posterLoc.join('  ·  '),
+          note ? h('div', { class: 'pb-note' }, [note]) : null
         ])
       ]));
     }

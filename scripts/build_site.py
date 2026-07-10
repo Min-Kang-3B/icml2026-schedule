@@ -32,6 +32,7 @@ w_matches = load('workshop_matches.json')
 ws_extract = load('ws_extract.json')     # wid -> {has_schedule,tz,schedule,speakers}
 ws_projpages = load('ws_projpages.json') # wid -> {title, proj}
 ws_paper_tags = load('ws_paper_tags.json')  # paper_id -> "Oral" | "Spotlight" (OpenReview designation)
+ws_manual_poster = load('ws_manual_poster.json')  # wid -> {posterLoc, note_ko, note_en} from off-site sources (email / on-site slides)
 
 def poster_locations(schedule):
     """Pull concise 'Hall X · <board ranges>' strings from poster-session rows that carry a location."""
@@ -272,7 +273,20 @@ for day in sched['days']:
                     if plocs:
                         p['posterLoc'] = plocs
                         ev['posterLoc'] = plocs   # surface on the card (schedule.js) too
-                if p.get('schedule') or p.get('speakers'):
+                # manual poster info from off-site sources (organizer email / on-site slide) overrides
+                man = ws_manual_poster.get(eid)
+                if man:
+                    if man.get('posterLoc'):
+                        p['posterLoc'] = man['posterLoc']
+                        ev['posterLoc'] = man['posterLoc']
+                    note = {}
+                    if man.get('note_ko'):
+                        note['ko'] = man['note_ko']
+                    if man.get('note_en'):
+                        note['en'] = man['note_en']
+                    if note:
+                        p['posterNote'] = note
+                if p.get('schedule') or p.get('speakers') or p.get('posterLoc'):
                     drec['program'] = p
 
         # children -> paper file

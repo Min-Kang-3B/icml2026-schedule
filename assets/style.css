@@ -245,6 +245,7 @@ a:hover { text-decoration: underline; }
   font-size: 13.5px; color: var(--text); line-height: 1.45;
 }
 .poster-banner .pb-ico { flex: 0 0 auto; }
+.poster-banner .pb-note { margin-top: 4px; font-size: 12px; color: var(--text2); font-weight: 400; }
 /* poster location on the timeline card */
 .posterloc {
   margin-top: 6px; font-size: 12.5px; font-weight: 700; color: var(--c-workshop);
