@@ -1,5 +1,5 @@
 /* ICML 2026 schedule — service worker: network-first with full cache fallback */
-var VERSION = 'icml2026-v8';
+var VERSION = 'icml2026-v9';
 var SHELL = [
   './',
   'index.html',
